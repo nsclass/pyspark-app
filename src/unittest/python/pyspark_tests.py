@@ -9,6 +9,7 @@ import unittest
 import os
 from pathlib import Path
 from pyspark.sql import SparkSession
+import pyspark.sql.functions as F
 from nseo.app.service import hello
 
 class HelloWorldTest(unittest.TestCase):
@@ -30,5 +31,15 @@ class HelloWorldTest(unittest.TestCase):
         print(f"Row count: {row_count}")
         hello()
 
-    def test_run(self):
-        hello()
+    def test_custom_agg(self):
+        df = self.spark \
+            .read \
+            .option("header", "true") \
+            .option("inferschema", "true") \
+            .csv(f"{self.data_path}/price.csv")
+        df.printSchema()
+
+        cnt_cond = lambda cond: F.sum(F.when(cond, 1).otherwise(0))
+        df.groupBy(df.date).agg(F.avg(df.price).alias('avg'),
+                                cnt_cond(df.include == 'true').alias('count_cnd')) \
+                                .show()
